@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="584" viewBox="0 0 1500 584">
+<rect width="100%" height="100%" fill="#0f172a"/>
+<text x="42" y="42" fill="#e2e8f0" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700">Case 6 — fast approximation with Jaro-Winkler selection</text>
+<text x="42" y="82" fill="#93c5fd" font-family="Consolas, monospace" font-size="16">$ case06_neighboring_lines/health_check.py</text>
+<text x="42" y="107" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">&quot;&quot;&quot;Health endpoint with nearby non-database endpoints and credentials.&quot;&quot;&quot;</text>
+<text x="42" y="132" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="157" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pymysql</text>
+<text x="42" y="182" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="207" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="232" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">FILE_STORAGE_HOST = &quot;files.demo.internal&quot;</text>
+<text x="42" y="257" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">MYSQL_HOST = &quot;mysql-health.demo.internal&quot;</text>
+<text x="42" y="282" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">MYSQL_PASSWORD = &quot;fake-health-password&quot;</text>
+<text x="42" y="307" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="332" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="357" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">def check_dependencies() -&gt; bool:</text>
+<text x="42" y="382" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    pymysql.connect(host=MYSQL_HOST, password=MYSQL_PASSWORD, database=&quot;health&quot;)</text>
+<text x="42" y="407" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    return bool(FILE_STORAGE_HOST)</text>
+<text x="42" y="432" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="457" fill="#fbbf24" font-family="Consolas, monospace" font-size="16">RESULTS</text>
+<text x="42" y="482" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] health_check.py:12  fa****************rd -&gt; mysql-health.demo.internal:health</text>
+</svg>

@@ -1,0 +1,4 @@
+mysql:
+  host: mysql-config.demo.internal
+  password: fake-config-mysql-password
+  database: orders

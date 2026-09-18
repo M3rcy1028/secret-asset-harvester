@@ -1,0 +1,4 @@
+<database>
+  <host>mongo-config.demo.internal</host>
+  <password>fake-config-mongo-password</password>
+</database>

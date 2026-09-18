@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="759" viewBox="0 0 1500 759">
+<rect width="100%" height="100%" fill="#0f172a"/>
+<text x="42" y="42" fill="#e2e8f0" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700">Case 4 — P4: values from an application settings module</text>
+<text x="42" y="82" fill="#93c5fd" font-family="Consolas, monospace" font-size="16">$ case04_cross_module/settings.py</text>
+<text x="42" y="107" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">&quot;&quot;&quot;Values normally supplied by deployment configuration.&quot;&quot;&quot;</text>
+<text x="42" y="132" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="157" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">DATABASE_HOST = &quot;inventory.demo.internal&quot;</text>
+<text x="42" y="182" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">DATABASE_PASSWORD = &quot;fake-inventory-password&quot;</text>
+<text x="42" y="207" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">DATABASE_NAME = &quot;inventory&quot;</text>
+<text x="42" y="232" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="257" fill="#93c5fd" font-family="Consolas, monospace" font-size="16">$ case04_cross_module/inventory_repository.py</text>
+<text x="42" y="282" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">&quot;&quot;&quot;Inventory repository imported by the application service.&quot;&quot;&quot;</text>
+<text x="42" y="307" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="332" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pymysql</text>
+<text x="42" y="357" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="382" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">from settings import DATABASE_HOST, DATABASE_NAME, DATABASE_PASSWORD</text>
+<text x="42" y="407" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="432" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="457" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">def connect_inventory():</text>
+<text x="42" y="482" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    return pymysql.connect(</text>
+<text x="42" y="507" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        host=DATABASE_HOST,</text>
+<text x="42" y="532" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        password=DATABASE_PASSWORD,</text>
+<text x="42" y="557" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        database=DATABASE_NAME,</text>
+<text x="42" y="582" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    )</text>
+<text x="42" y="607" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="632" fill="#fbbf24" font-family="Consolas, monospace" font-size="16">RESULTS</text>
+<text x="42" y="657" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P4] inventory_repository.py:9  fa*******************rd -&gt; inventory.demo.internal:inventory</text>
+</svg>

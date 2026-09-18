@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1634" viewBox="0 0 1500 1634">
+<rect width="100%" height="100%" fill="#0f172a"/>
+<text x="42" y="42" fill="#e2e8f0" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700">Case 7 — all 12 Python database drivers from Table III</text>
+<text x="42" y="82" fill="#93c5fd" font-family="Consolas, monospace" font-size="16">$ case07_driver_catalog/adapters.py</text>
+<text x="42" y="107" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">&quot;&quot;&quot;Representative adapters used by a multi-database reporting service.&quot;&quot;&quot;</text>
+<text x="42" y="132" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="157" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import aiomysql</text>
+<text x="42" y="182" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import asyncpg</text>
+<text x="42" y="207" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import jaydebeapi</text>
+<text x="42" y="232" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import mysql.connector</text>
+<text x="42" y="257" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import peewee</text>
+<text x="42" y="282" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import psycopg2</text>
+<text x="42" y="307" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pymongo</text>
+<text x="42" y="332" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pymssql</text>
+<text x="42" y="357" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pymysql</text>
+<text x="42" y="382" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import pyodbc</text>
+<text x="42" y="407" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">import sqlalchemy</text>
+<text x="42" y="432" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">from aiopg import connect as aiopg_connect</text>
+<text x="42" y="457" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="482" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="507" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">HOST = &quot;catalog.demo.internal&quot;</text>
+<text x="42" y="532" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">PASSWORD = &quot;fake-catalog-password&quot;</text>
+<text x="42" y="557" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="582" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="607" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">def open_mysql_adapters():</text>
+<text x="42" y="632" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    return [</text>
+<text x="42" y="657" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        aiomysql.connect(host=HOST, password=PASSWORD),</text>
+<text x="42" y="682" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        mysql.connector.connect(host=HOST, password=PASSWORD),</text>
+<text x="42" y="707" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        pymysql.connect(host=HOST, password=PASSWORD),</text>
+<text x="42" y="732" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    ]</text>
+<text x="42" y="757" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="782" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="807" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">def open_postgres_adapters():</text>
+<text x="42" y="832" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    return [</text>
+<text x="42" y="857" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        aiopg_connect(dsn=&quot;postgresql://reporter:fake-aiopg-password@catalog.demo.internal/catalog&quot;),</text>
+<text x="42" y="882" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        asyncpg.connect(host=HOST, password=PASSWORD),</text>
+<text x="42" y="907" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        psycopg2.connect(&quot;postgresql://reporter:fake-psycopg-password@catalog.demo.internal/catalog&quot;),</text>
+<text x="42" y="932" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    ]</text>
+<text x="42" y="957" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="982" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="1007" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">def open_other_adapters():</text>
+<text x="42" y="1032" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    return [</text>
+<text x="42" y="1057" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        pymongo.MongoClient(host=HOST, password=PASSWORD),</text>
+<text x="42" y="1082" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        pymssql.connect(server=HOST, password=PASSWORD),</text>
+<text x="42" y="1107" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        pyodbc.connect(&quot;Driver={SQL Server};Server=catalog.demo.internal;Database=catalog;Uid=reporter;Pwd=fake-pyodbc-password;&quot;),</text>
+<text x="42" y="1132" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        jaydebeapi.connect(&quot;org.postgresql.Driver&quot;, &quot;jdbc:postgresql://catalog.demo.internal:5432/catalog?user=reporter&amp;password=fake-jaydebeapi-password&quot;),</text>
+<text x="42" y="1157" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        peewee.PostgresqlDatabase(&quot;catalog&quot;, host=HOST, password=PASSWORD),</text>
+<text x="42" y="1182" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">        sqlalchemy.create_engine(&quot;mysql://reporter:fake-sqlalchemy-password@catalog.demo.internal/catalog&quot;),</text>
+<text x="42" y="1207" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">    ]</text>
+<text x="42" y="1232" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16"></text>
+<text x="42" y="1257" fill="#fbbf24" font-family="Consolas, monospace" font-size="16">RESULTS</text>
+<text x="42" y="1282" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:23  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1307" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:24  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1332" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:25  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1357" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[pattern-matching/P1] adapters.py:31  fa***************rd -&gt; catalog.demo.internal:catalog</text>
+<text x="42" y="1382" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:32  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1407" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[pattern-matching/P1] adapters.py:33  fa*****************rd -&gt; catalog.demo.internal:catalog</text>
+<text x="42" y="1432" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:39  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1457" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[static-value-flow/P3] adapters.py:40  fa*****************rd -&gt; catalog.demo.internal</text>
+<text x="42" y="1482" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[pattern-matching/P1] adapters.py:41  fa****************rd -&gt; catalog.demo.internal:catalog</text>
+<text x="42" y="1507" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[pattern-matching/P1] adapters.py:42  fa********************rd -&gt; catalog.demo.internal:5432:catalog</text>
+<text x="42" y="1532" fill="#e2e8f0" font-family="Consolas, monospace" font-size="16">[pattern-matching/P1] adapters.py:44  fa********************rd -&gt; catalog.demo.internal:catalog</text>
+</svg>

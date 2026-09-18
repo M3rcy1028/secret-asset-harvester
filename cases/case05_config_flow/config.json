@@ -1,0 +1,7 @@
+{
+  "postgres": {
+    "host": "postgres-config.demo.internal",
+    "password": "fake-config-postgres-password",
+    "database": "billing"
+  }
+}

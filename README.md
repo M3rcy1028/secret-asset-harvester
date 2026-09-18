@@ -217,26 +217,19 @@ python -m assetharvester.cli targets\2024_DDV --history --json --output outputs\
 
 ### 7.3 공개 repository 여러 개 분석
 
-사전에 `targets/public-repos/` 아래에 repository를 clone한 후 실행한다.
+사전에 `targets/public-repo/` 아래에 repository를 clone한 후 실행한다.
 
 ```powershell
-New-Item -ItemType Directory -Force outputs\public-repo-findings | Out-Null
+$runDir = Join-Path outputs (Get-Date -Format yyyyMMdd_HHmmss)
+New-Item -ItemType Directory -Force $runDir | Out-Null
 
-Get-ChildItem targets\public-repos -Directory | ForEach-Object {
-    $name = $_.Name
-    python -m assetharvester.cli $_.FullName --json `
-        --output "outputs\public-repo-findings\$name.json"
-    Write-Host "$name scanned"
+Get-ChildItem targets\public-repo -Directory | ForEach-Object {
+    python -m assetharvester.cli $_.FullName --json --output-dir $runDir
+    Write-Host "$($_.Name) scanned"
 }
 ```
 
-현재 결과를 한 번에 콘솔에 출력할 수도 있다.
-
-```powershell
-python -m assetharvester.cli targets\public-repos --json --output outputs\public-repos-findings.json
-```
-
-단, 저장소별 결과를 분리하려면 첫 번째 방식을 사용한다.
+모든 repository 결과가 하나의 `outputs\YYYYMMDD_HHMMSS\` 디렉토리 안에 저장된다. 단일 실행에서 `--output-dir`를 생략하면 CLI가 실행 시각 디렉토리를 자동 생성한다.
 
 ### 7.4 CodeQL 실행
 

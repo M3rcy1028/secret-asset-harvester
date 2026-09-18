@@ -236,7 +236,19 @@ Get-ChildItem targets\public-repo -Directory | ForEach-Object {
 }
 ```
 
-각 실행 결과는 `outputs\YYYYMMDD_HHMMSS\` 아래에 저장되며, 여러 저장소를 같은 초에 실행하면 같은 디렉토리를 공유한다.
+여러 저장소를 한 실험 단위로 묶으려면 실행 디렉토리를 먼저 한 번 만들고 `--output-dir`로 공유한다.
+
+```powershell
+$runDir = Join-Path outputs (Get-Date -Format yyyyMMdd_HHmmss)
+New-Item -ItemType Directory -Force $runDir | Out-Null
+
+Get-ChildItem targets\public-repo -Directory | ForEach-Object {
+    python -m assetharvester.cli $_.FullName --json --output-dir $runDir
+    Write-Host "$($_.Name) scanned"
+}
+```
+
+결과는 모두 `outputs\YYYYMMDD_HHMMSS\` 하나의 디렉토리 안에 저장된다. 단일 실행에서 `--output-dir`를 생략하면 CLI가 실행 시각 디렉토리를 자동 생성한다.
 
 ### 7.4 CodeQL 실행
 

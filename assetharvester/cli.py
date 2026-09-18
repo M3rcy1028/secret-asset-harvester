@@ -14,14 +14,17 @@ def main() -> int:
     parser.add_argument("target", nargs="?", default="cases", help="File or directory to analyze")
     parser.add_argument("--json", action="store_true", help="Emit findings as JSON")
     parser.add_argument("--output", type=Path, help="Write JSON findings to this file; default is a timestamped outputs directory")
+    parser.add_argument("--output-dir", type=Path, help="Write JSON findings under this shared directory")
     parser.add_argument("--history", action="store_true", help="Also inspect Git history for connection strings")
     arguments = parser.parse_args()
+    if arguments.output and arguments.output_dir:
+        parser.error("--output and --output-dir cannot be used together")
     target = Path(arguments.target)
     findings = analyze_path(target, history=arguments.history)
     if arguments.json:
         payload = json.dumps([finding.to_dict() for finding in findings], ensure_ascii=False, indent=2)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = arguments.output or Path("outputs") / timestamp / f"{target.name}-findings.json"
+        output = arguments.output or (arguments.output_dir or Path("outputs") / timestamp) / f"{target.name}-findings.json"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(payload + "\n", encoding="utf-8")
         print(f"Wrote {len(findings)} findings to {output}")

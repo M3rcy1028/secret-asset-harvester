@@ -12,12 +12,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Simulate AssetHarvester secret-asset pair detection.")
     parser.add_argument("target", nargs="?", default="cases", help="File or directory to analyze")
     parser.add_argument("--json", action="store_true", help="Emit findings as JSON")
+    parser.add_argument("--output", type=Path, help="Write JSON findings to this file instead of stdout")
     parser.add_argument("--history", action="store_true", help="Also inspect Git history for connection strings")
     arguments = parser.parse_args()
     target = Path(arguments.target)
     findings = analyze_path(target, history=arguments.history)
     if arguments.json:
-        print(json.dumps([finding.to_dict() for finding in findings], ensure_ascii=False, indent=2))
+        payload = json.dumps([finding.to_dict() for finding in findings], ensure_ascii=False, indent=2)
+        if arguments.output:
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(payload + "\n", encoding="utf-8")
+            print(f"Wrote {len(findings)} findings to {arguments.output}")
+        else:
+            print(payload)
         return 0
     print(f"AssetHarvester simulation: {len(findings)} secret-asset pair observations")
     for finding in findings:

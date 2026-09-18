@@ -384,6 +384,88 @@ def _config_key_flow_findings(repository: Repository) -> list[Finding]:
     return findings
 
 
+JS_ASSIGNMENT_PATTERN = re.compile(
+    r"\b(?:const|let|var)\s+(?P<name>[A-Za-z_$][\w$]*)\s*=\s*(?P<value>[^;\n]+)"
+)
+JS_POOL_PATTERN = re.compile(
+    r"(?:mysql|mysql2)\.createPool\s*\(\s*\{(?P<body>.*?)\}\s*\)", re.S
+)
+JS_PROPERTY_PATTERN = re.compile(
+    r"\b(?P<name>host|hostname|server|password|passwd|pwd|database|db)\s*:\s*(?P<value>[^,\n}]+)"
+)
+ENV_REFERENCE_PATTERN = re.compile(r"process\.env\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _javascript_dataflow_findings(root: Path) -> list[Finding]:
+    env_values: dict[str, Value] = {}
+    for env_path in root.rglob("*.env"):
+        try:
+            env_text = env_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(env_text.splitlines(), 1):
+            match = re.match(r"\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>.*)\s*$", line)
+            if match and match.group("value"):
+                env_values[match.group("name")] = Value(match.group("value").strip("'\""), env_path, line_number, match.group("name"))
+
+    findings: list[Finding] = []
+    for source in root.rglob("*"):
+        if not source.is_file() or source.suffix.lower() not in {".js", ".jsx", ".ts", ".tsx"}:
+            continue
+        try:
+            text = source.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        bindings: dict[str, Value] = {}
+        for assignment in JS_ASSIGNMENT_PATTERN.finditer(text):
+            raw_value = assignment.group("value").strip()
+            env_match = ENV_REFERENCE_PATTERN.fullmatch(raw_value)
+            if env_match:
+                env_name = env_match.group("name")
+                bindings[assignment.group("name")] = env_values.get(
+                    env_name,
+                    Value(f"env:{env_name}", source, _line(text, assignment.start()), f"env:{env_name}"),
+                )
+            elif len(raw_value) >= 2 and raw_value[0] in "'\"`" and raw_value[-1] == raw_value[0]:
+                bindings[assignment.group("name")] = Value(raw_value[1:-1], source, _line(text, assignment.start()), assignment.group("name"))
+
+        for pool in JS_POOL_PATTERN.finditer(text):
+            arguments: dict[str, Value] = {}
+            for property_match in JS_PROPERTY_PATTERN.finditer(pool.group("body")):
+                raw_value = property_match.group("value").strip()
+                env_match = ENV_REFERENCE_PATTERN.fullmatch(raw_value)
+                if env_match:
+                    env_name = env_match.group("name")
+                    value = env_values.get(env_name, Value(f"env:{env_name}", source, _line(text, pool.start()), f"env:{env_name}"))
+                elif raw_value in bindings:
+                    value = bindings[raw_value]
+                elif len(raw_value) >= 2 and raw_value[0] in "'\"`" and raw_value[-1] == raw_value[0]:
+                    value = Value(raw_value[1:-1], source, _line(text, pool.start()), property_match.group("name"))
+                else:
+                    continue
+                arguments[property_match.group("name").lower()] = value
+            secret_name, secret = next(((name, value) for name, value in arguments.items() if name in PASSWORD_ARGUMENTS), ("", None))
+            host_name, host = next(((name, value) for name, value in arguments.items() if name in HOST_ARGUMENTS), ("", None))
+            if not secret or not host:
+                continue
+            host_value = str(host.value)
+            if not _valid_host(host_value) and not host_value.startswith("env:"):
+                continue
+            findings.append(Finding(
+                "javascript-data-flow",
+                "P3",
+                "mysql2",
+                str(source),
+                _line(text, pool.start()),
+                secret_name,
+                _preview(str(secret.value)),
+                host_value,
+                "high" if not host_value.startswith("env:") else "medium",
+                f"mysql2.createPool sink; secret source {secret.file.name}:{secret.line} ({secret.name}), asset source {host.file.name}:{host.line} ({host.name})",
+            ))
+    return findings
+
+
 def jaro_winkler(left: str, right: str) -> float:
     if left == right:
         return 1.0
@@ -463,6 +545,7 @@ def analyze_path(target: str | Path, history: bool = False) -> list[Finding]:
             continue
     findings.extend(_dataflow_findings(repository))
     findings.extend(_config_key_flow_findings(repository))
+    findings.extend(_javascript_dataflow_findings(root))
     excluded: dict[Path, set[int]] = {}
     for finding in findings:
         excluded.setdefault(Path(finding.file), set()).add(finding.line)

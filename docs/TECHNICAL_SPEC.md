@@ -37,7 +37,8 @@ assetharvester/
 │  ├─ case05_config_flow/
 │  ├─ case06_neighboring_lines/
 │  ├─ case07_driver_catalog/
-│  └─ case08_global_flow/
+│  ├─ case08_global_flow/
+│  └─ case09_javascript_env_flow/
 ├─ codeql/
 │  └─ queries/                 # Python CodeQL query
 ├─ scripts/
@@ -125,7 +126,26 @@ Python AST 기반 분석은 다음을 지원한다.
 
 현재 지원 driver catalog에는 `aiomysql`, `mysql.connector`, `pymysql`, `aiopg`, `asyncpg`, `psycopg2`, `pymongo`, `pymssql`, `pyodbc`, `jaydebeapi`, `peewee`, `sqlalchemy`가 포함된다.
 
-### 5.3 Configuration key flow
+### 5.3 JavaScript environment data flow
+
+JavaScript·TypeScript 파일의 `mysql2.createPool({...})` 호출을 sink로 모델링하고, 다음 source를 연결한다.
+
+- `process.env.DB_HOST`, `process.env.DB_PASSWORD` 등의 환경변수 참조
+- 같은 파일의 단순 변수 alias
+- `.env` 파일에 정의된 literal 값
+
+예를 들어 다음 코드는 `javascript-data-flow/P3` finding을 생성한다.
+
+```javascript
+mysql.createPool({
+  host: process.env.DB_HOST,
+  password: process.env.DB_PASSWORD
+});
+```
+
+`.env` 파일이 없으면 asset은 `env:DB_HOST`처럼 환경변수 provenance로 기록하고 confidence를 `medium`으로 낮춘다.
+
+### 5.4 Configuration key flow
 
 Python 코드에서 다음 형식의 설정값 사용을 추적한다.
 
@@ -135,13 +155,13 @@ Python 코드에서 다음 형식의 설정값 사용을 추적한다.
 
 설정 파일의 host/password key가 같은 DB sink에 전달되고 host와 secret이 모두 유효하면 `config-key-data-flow/P4` finding을 생성한다.
 
-### 5.4 Neighboring-line heuristic
+### 5.5 Neighboring-line heuristic
 
 secret 변수 주변 ±3줄의 IP/DNS 후보를 수집하고 Jaro–Winkler similarity로 asset 후보를 선택한다.
 
 이 방식은 빠르지만 변수명 유사성에 의존하므로 false positive가 발생할 수 있다. 결과 confidence는 `medium`으로 기록한다.
 
-### 5.5 Git history
+### 5.6 Git history
 
 `--history` 옵션을 사용하면 다음 Git 명령을 기반으로 과거 snapshot을 검사한다.
 
@@ -178,19 +198,19 @@ python -m assetharvester.cli cases
 JSON 출력:
 
 ```powershell
-python -m assetharvester.cli cases --json
+python -m assetharvester.cli cases --json --output outputs\cases-findings.json
 ```
 
 Git history 포함:
 
 ```powershell
-python -m assetharvester.cli cases --history --json
+python -m assetharvester.cli cases --history --json --output outputs\cases-history-findings.json
 ```
 
 ### 7.2 단일 외부 repository 분석
 
 ```powershell
-python -m assetharvester.cli targets\2024_DDV --history --json
+python -m assetharvester.cli targets\2024_DDV --history --json --output outputs\2024_DDV-findings.json
 ```
 
 분석 대상 repository 코드는 실행하지 않는다.
@@ -204,8 +224,8 @@ New-Item -ItemType Directory -Force outputs\public-repo-findings | Out-Null
 
 Get-ChildItem targets\public-repos -Directory | ForEach-Object {
     $name = $_.Name
-    python -m assetharvester.cli $_.FullName --json |
-        Set-Content "outputs\public-repo-findings\$name.json" -Encoding utf8
+    python -m assetharvester.cli $_.FullName --json `
+        --output "outputs\public-repo-findings\$name.json"
     Write-Host "$name scanned"
 }
 ```
@@ -213,7 +233,7 @@ Get-ChildItem targets\public-repos -Directory | ForEach-Object {
 현재 결과를 한 번에 콘솔에 출력할 수도 있다.
 
 ```powershell
-python -m assetharvester.cli targets\public-repos --json
+python -m assetharvester.cli targets\public-repos --json --output outputs\public-repos-findings.json
 ```
 
 단, 저장소별 결과를 분리하려면 첫 번째 방식을 사용한다.
@@ -274,8 +294,9 @@ outputs/codeql/secret-asset-flow.sarif
 ### 내부 fixture
 
 ```text
-Python unittest: 8 tests passed
+Python unittest: 9 tests passed
 CodeQL queries: 2 compiled/evaluated
+JavaScript mysql2 environment flow: verified
 ```
 
 ### 공개 repository 실험
@@ -297,7 +318,8 @@ outputs/public-repo-scan-results.json
 
 ## 10. 현재 한계
 
-- JavaScript/TypeScript/Java/C#의 AST data-flow는 아직 구현되지 않았다.
+- JavaScript/TypeScript data-flow는 현재 `mysql2.createPool`과 환경변수·단순 alias 범위만 지원한다.
+- Java/C#의 AST data-flow는 아직 구현되지 않았다.
 - `process.env.DB_PASSWORD`, `.env` 로딩 등 runtime secret source 흐름은 제한적이다.
 - CodeQL query가 Python으로 고정되어 있다.
 - shallow clone 실험에서는 전체 history를 분석하지 않는다.

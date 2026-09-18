@@ -19,12 +19,10 @@ def main() -> int:
     findings = analyze_path(target, history=arguments.history)
     if arguments.json:
         payload = json.dumps([finding.to_dict() for finding in findings], ensure_ascii=False, indent=2)
-        if arguments.output:
-            arguments.output.parent.mkdir(parents=True, exist_ok=True)
-            arguments.output.write_text(payload + "\n", encoding="utf-8")
-            print(f"Wrote {len(findings)} findings to {arguments.output}")
-        else:
-            print(payload)
+        output = arguments.output or Path("outputs") / f"{target.name}-findings.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(payload + "\n", encoding="utf-8")
+        print(f"Wrote {len(findings)} findings to {output}")
         return 0
     print(f"AssetHarvester simulation: {len(findings)} secret-asset pair observations")
     for finding in findings:

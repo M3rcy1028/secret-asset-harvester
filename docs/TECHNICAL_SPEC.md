@@ -195,7 +195,14 @@ AST와 CodeQL은 현재 Python 중심이다. 다른 언어는 Pattern Matching �
 python -m assetharvester.cli cases
 ```
 
-JSON 출력:
+JSON 출력은 `--output`을 생략하면 실행 시각별 디렉토리에 저장된다.
+
+```powershell
+python -m assetharvester.cli cases --json
+# outputs\20260918_213541\cases-findings.json
+```
+
+특정 파일 경로를 직접 지정할 수도 있다.
 
 ```powershell
 python -m assetharvester.cli cases --json --output outputs\cases-findings.json
@@ -220,23 +227,16 @@ python -m assetharvester.cli targets\2024_DDV --history --json --output outputs\
 사전에 `targets/public-repos/` 아래에 repository를 clone한 후 실행한다.
 
 ```powershell
-New-Item -ItemType Directory -Force outputs\public-repo-findings | Out-Null
+New-Item -ItemType Directory -Force targets\public-repo | Out-Null
 
-Get-ChildItem targets\public-repos -Directory | ForEach-Object {
+Get-ChildItem targets\public-repo -Directory | ForEach-Object {
     $name = $_.Name
-    python -m assetharvester.cli $_.FullName --json `
-        --output "outputs\public-repo-findings\$name.json"
+    python -m assetharvester.cli $_.FullName --json
     Write-Host "$name scanned"
 }
 ```
 
-현재 결과를 한 번에 콘솔에 출력할 수도 있다.
-
-```powershell
-python -m assetharvester.cli targets\public-repos --json --output outputs\public-repos-findings.json
-```
-
-단, 저장소별 결과를 분리하려면 첫 번째 방식을 사용한다.
+각 실행 결과는 `outputs\YYYYMMDD_HHMMSS\` 아래에 저장되며, 여러 저장소를 같은 초에 실행하면 같은 디렉토리를 공유한다.
 
 ### 7.4 CodeQL 실행
 
@@ -261,20 +261,27 @@ powershell -ExecutionPolicy Bypass -File scripts\run_codeql.ps1 `
 
 ```json
 {
-  "method": "pattern-matching",
   "pattern": "P1",
+  "method": "pattern-matching",
   "database_type": "PostgreSQL",
-  "file": "path/to/file.py",
-  "line": 42,
-  "secret_name": "connection-string-password",
-  "secret_preview": "fa********rd",
-  "asset": "db.example.com:5432:orders",
-  "confidence": "high",
-  "evidence": "URI connection string"
+  "sink": {
+    "file": "path/to/file.py",
+    "line": 42
+  },
+  "asset": {
+    "value": "db.example.com:5432:orders",
+    "source": null
+  },
+  "secret": {
+    "name": "connection-string-password",
+    "preview": "fa********rd",
+    "source": null
+  },
+  "confidence": "high"
 }
 ```
 
-`secret_preview`는 원문 secret이 아니라 앞·뒤 일부와 마스킹 문자로 구성된다.
+`sink`는 실제 DB 연결 호출 위치이며, `asset.source`와 `secret.source`는 추적 가능한 설정 source다. `source`가 없는 직접 연결 문자열은 `null`로 기록한다. secret preview는 원문 secret이 아니라 앞·뒤 일부와 마스킹 문자로 구성된다.
 
 ### CodeQL SARIF
 

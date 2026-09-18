@@ -6,7 +6,7 @@ import json
 import re
 import subprocess
 import xml.etree.ElementTree as element_tree
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -50,8 +50,28 @@ class Finding:
     confidence: str
     evidence: str
 
-    def to_dict(self) -> dict[str, str | int]:
-        return asdict(self)
+    def to_dict(self) -> dict[str, Any]:
+        secret_source = _source_from_evidence(self.evidence, "secret")
+        asset_source = _source_from_evidence(self.evidence, "asset")
+        return {
+            "pattern": self.pattern,
+            "method": self.method,
+            "database_type": self.database_type,
+            "sink": {
+                "file": self.file,
+                "line": self.line,
+            },
+            "asset": {
+                "value": self.asset,
+                "source": asset_source,
+            },
+            "secret": {
+                "name": self.secret_name,
+                "preview": self.secret_preview,
+                "source": secret_source,
+            },
+            "confidence": self.confidence,
+        }
 
 
 @dataclass(frozen=True)
@@ -60,6 +80,19 @@ class Value:
     file: Path
     line: int
     name: str
+
+
+def _source_from_evidence(evidence: str, kind: str) -> dict[str, Any] | None:
+    match = re.search(rf"{kind} source ([^:,]+):(\d+)(?: \(([^)]+)\))?", evidence)
+    if not match:
+        return None
+    source: dict[str, Any] = {
+        "file": match.group(1),
+        "line": int(match.group(2)),
+    }
+    if match.group(3):
+        source["name"] = match.group(3)
+    return source
 
 
 def _preview(value: str) -> str:

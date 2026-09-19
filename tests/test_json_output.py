@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from assetharvester.analyzer import Finding
+from assetharvester.analyzer import Finding, Value
 from assetharvester.cli import main
 
 
@@ -21,6 +21,8 @@ class JsonOutputTests(unittest.TestCase):
             "127.0.0.1:3306",
             "high",
             "pymysql sink; secret source config.py:8 (PASSWORD), asset source config.py:5 (HOST)",
+            Value("hidden", Path("config.py"), 8, "PASSWORD"),
+            Value("127.0.0.1", Path("config.py"), 5, "HOST"),
         )
 
         result = finding.to_dict()
@@ -29,6 +31,7 @@ class JsonOutputTests(unittest.TestCase):
         self.assertEqual(result["asset"]["source"], {"file": "config.py", "line": 5, "name": "HOST"})
         self.assertEqual(result["secret"]["source"], {"file": "config.py", "line": 8, "name": "PASSWORD"})
         self.assertNotIn("evidence", result)
+        self.assertNotIn("hidden", repr(finding))
 
     def test_default_json_output_uses_timestamp_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -45,6 +48,22 @@ class JsonOutputTests(unittest.TestCase):
             self.assertTrue(json.loads(output.read_text(encoding="utf-8")))
             output.unlink()
             output.parent.rmdir()
+
+    def test_multiple_results_share_explicit_output_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.py"
+            second = root / "second.py"
+            for target in (first, second):
+                target.write_text("URI = 'mysql://user:secret@db.example.com/app'", encoding="utf-8")
+            output_dir = root / "results"
+            with patch("builtins.print"):
+                self.assertEqual(main_args([str(first), "--json", "--output-dir", str(output_dir)]), 0)
+                self.assertEqual(main_args([str(second), "--json", "--output-dir", str(output_dir)]), 0)
+            self.assertEqual(
+                {path.name for path in output_dir.iterdir()},
+                {"first.py-findings.json", "second.py-findings.json"},
+            )
 
 
 def main_args(arguments: list[str]) -> int:

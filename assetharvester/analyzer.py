@@ -6,7 +6,7 @@ import json
 import re
 import subprocess
 import xml.etree.ElementTree as element_tree
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -49,10 +49,10 @@ class Finding:
     asset: str
     confidence: str
     evidence: str
+    secret_source: Value | None = field(default=None, repr=False)
+    asset_source: Value | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
-        secret_source = _source_from_evidence(self.evidence, "secret")
-        asset_source = _source_from_evidence(self.evidence, "asset")
         return {
             "pattern": self.pattern,
             "method": self.method,
@@ -63,12 +63,12 @@ class Finding:
             },
             "asset": {
                 "value": self.asset,
-                "source": asset_source,
+                "source": _source_dict(self.asset_source),
             },
             "secret": {
                 "name": self.secret_name,
                 "preview": self.secret_preview,
-                "source": secret_source,
+                "source": _source_dict(self.secret_source),
             },
             "confidence": self.confidence,
         }
@@ -82,16 +82,15 @@ class Value:
     name: str
 
 
-def _source_from_evidence(evidence: str, kind: str) -> dict[str, Any] | None:
-    match = re.search(rf"{kind} source ([^:,]+):(\d+)(?: \(([^)]+)\))?", evidence)
-    if not match:
+def _source_dict(value: Value | None) -> dict[str, Any] | None:
+    if value is None:
         return None
     source: dict[str, Any] = {
-        "file": match.group(1),
-        "line": int(match.group(2)),
+        "file": str(value.file),
+        "line": value.line,
     }
-    if match.group(3):
-        source["name"] = match.group(3)
+    if value.name != "literal":
+        source["name"] = value.name
     return source
 
 
@@ -159,29 +158,46 @@ def _qualified_name(node: ast.AST) -> str:
 
 class Repository:
     def __init__(self, root: Path):
-        self.root, self.trees, self.texts, self.values, self.imports = root, {}, {}, {}, {}
+        self.root, self.trees, self.texts, self.values, self.imports, self.driver_aliases = root, {}, {}, {}, {}, {}
         self._load()
 
     def _load(self) -> None:
         for path in self.root.rglob("*.py"):
             try:
-                text, tree = path.read_text(encoding="utf-8"), ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                text = path.read_text(encoding="utf-8")
+                tree = ast.parse(text, filename=str(path))
             except (UnicodeDecodeError, SyntaxError):
                 continue
-            self.texts[path], self.trees[path], self.values[path], self.imports[path] = text, tree, {}, {}
+            self.texts[path], self.trees[path], self.values[path], self.imports[path], self.driver_aliases[path] = text, tree, {}, {}, {}
         for path, tree in self.trees.items():
             for node in tree.body:
-                if isinstance(node, ast.ImportFrom) and node.module:
+                if isinstance(node, ast.Import):
+                    for item in node.names:
+                        alias = item.asname or item.name.split(".")[0]
+                        self.driver_aliases[path][alias] = item.name if item.asname else alias
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    for item in node.names:
+                        self.driver_aliases[path][item.asname or item.name] = f"{node.module}.{item.name}"
                     module = self._module_path(path, node.module)
                     if module:
                         for item in node.names:
                             self.imports[path][item.asname or item.name] = (module, item.name)
-                elif isinstance(node, ast.Assign):
+        for _ in range(len(self.trees) + 1):
+            changed = False
+            for path, tree in self.trees.items():
+                for node in tree.body:
+                    if not isinstance(node, ast.Assign):
+                        continue
                     value = self.resolve(node.value, path)
                     if value:
                         for target in node.targets:
                             if isinstance(target, ast.Name):
-                                self.values[path][target.id] = Value(value.value, value.file, value.line, target.id)
+                                resolved = Value(value.value, value.file, value.line, target.id)
+                                if self.values[path].get(target.id) != resolved:
+                                    self.values[path][target.id] = resolved
+                                    changed = True
+            if not changed:
+                break
 
     def _module_path(self, source: Path, module: str) -> Path | None:
         candidates = [source.parent / f"{module.replace('.', '/')}.py", self.root / f"{module.replace('.', '/')}.py"]
@@ -221,11 +237,14 @@ class Repository:
         return None
 
 
-def _driver(call: ast.Call) -> tuple[str, int | None] | None:
+def _driver(call: ast.Call, repository: Repository, path: Path) -> tuple[str, int | None] | None:
     name = _qualified_name(call.func).lower()
+    prefix, separator, suffix = name.partition(".")
+    if prefix in repository.driver_aliases[path]:
+        name = repository.driver_aliases[path][prefix].lower() + (f".{suffix}" if separator else "")
     for driver, functions in DRIVERS.items():
         for function, position in functions.items():
-            if name.endswith(f"{driver}.{function}") or name == function:
+            if name == f"{driver}.{function}":
                 return driver, position
     return None
 
@@ -234,7 +253,7 @@ def _dataflow_findings(repository: Repository) -> list[Finding]:
     findings: list[Finding] = []
     for path, tree in repository.trees.items():
         for call in ast.walk(tree):
-            if not isinstance(call, ast.Call) or not (driver := _driver(call)):
+            if not isinstance(call, ast.Call) or not (driver := _driver(call, repository, path)):
                 continue
             name, host_position = driver
             arguments: dict[str, Value] = {}
@@ -265,7 +284,7 @@ def _dataflow_findings(repository: Repository) -> list[Finding]:
             port = next((str(value.value) for key, value in arguments.items() if key == "port"), None)
             database = next((str(value.value) for key, value in arguments.items() if key in {"database", "db", "dbname"}), None)
             pattern = "P2" if secret.line == call.lineno and host.line == call.lineno else ("P4" if secret.file != path or host.file != path else "P3")
-            findings.append(Finding("static-value-flow", pattern, name, str(path), call.lineno, secret_name, _preview(str(secret.value)), _asset(host_text, port, database), "high", f"{name} sink; secret source {secret.file.name}:{secret.line}, asset source {host.file.name}:{host.line}"))
+            findings.append(Finding("static-value-flow", pattern, name, str(path), call.lineno, secret_name, _preview(str(secret.value)), _asset(host_text, port, database), "high", f"{name} sink; secret source {secret.file.name}:{secret.line}, asset source {host.file.name}:{host.line}", secret, host))
     return findings
 
 
@@ -402,7 +421,7 @@ def _config_key_flow_findings(repository: Repository) -> list[Finding]:
         if not bindings:
             continue
         for call in ast.walk(tree):
-            if not isinstance(call, ast.Call) or not (driver := _driver(call)):
+            if not isinstance(call, ast.Call) or not (driver := _driver(call, repository, source)):
                 continue
             driver_name, _ = driver
             arguments: dict[str, Value] = {}
@@ -413,7 +432,7 @@ def _config_key_flow_findings(repository: Repository) -> list[Finding]:
             host_name, host = next(((key, value) for key, value in arguments.items() if key in HOST_ARGUMENTS), ("", None))
             if not secret or not host or not _valid_host(str(host.value)):
                 continue
-            findings.append(Finding("config-key-data-flow", "P4", driver_name, str(source), call.lineno, secret_name, _preview(str(secret.value)), str(host.value), "high", f"{driver_name} sink; config source {secret.file.name}; secret source {secret.file.name}:{secret.line} ({secret.name}), asset source {host.file.name}:{host.line} ({host.name})"))
+            findings.append(Finding("config-key-data-flow", "P4", driver_name, str(source), call.lineno, secret_name, _preview(str(secret.value)), str(host.value), "high", f"{driver_name} sink; config source {secret.file.name}; secret source {secret.file.name}:{secret.line} ({secret.name}), asset source {host.file.name}:{host.line} ({host.name})", secret, host))
     return findings
 
 
@@ -429,9 +448,19 @@ JS_PROPERTY_PATTERN = re.compile(
 ENV_REFERENCE_PATTERN = re.compile(r"process\.env\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
 
 
-def _javascript_dataflow_findings(root: Path) -> list[Finding]:
+def _environment_values(root: Path, source: Path) -> dict[str, Value]:
+    directories: list[Path] = []
+    current = source.parent
+    while current == root or root in current.parents:
+        directories.append(current)
+        if current == root:
+            break
+        current = current.parent
     env_values: dict[str, Value] = {}
-    for env_path in root.rglob("*.env"):
+    for directory in reversed(directories):
+        env_path = directory / ".env"
+        if not env_path.is_file():
+            continue
         try:
             env_text = env_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -440,7 +469,10 @@ def _javascript_dataflow_findings(root: Path) -> list[Finding]:
             match = re.match(r"\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>.*)\s*$", line)
             if match and match.group("value"):
                 env_values[match.group("name")] = Value(match.group("value").strip("'\""), env_path, line_number, match.group("name"))
+    return env_values
 
+
+def _javascript_dataflow_findings(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for source in root.rglob("*"):
         if not source.is_file() or source.suffix.lower() not in {".js", ".jsx", ".ts", ".tsx"}:
@@ -449,6 +481,7 @@ def _javascript_dataflow_findings(root: Path) -> list[Finding]:
             text = source.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
+        env_values = _environment_values(root, source)
         bindings: dict[str, Value] = {}
         for assignment in JS_ASSIGNMENT_PATTERN.finditer(text):
             raw_value = assignment.group("value").strip()
@@ -486,15 +519,17 @@ def _javascript_dataflow_findings(root: Path) -> list[Finding]:
                 continue
             findings.append(Finding(
                 "javascript-data-flow",
-                "P3",
+                "P4" if secret.file != source or host.file != source else "P3",
                 "mysql2",
                 str(source),
                 _line(text, pool.start()),
                 secret_name,
                 _preview(str(secret.value)),
                 host_value,
-                "high" if not host_value.startswith("env:") else "medium",
+                "medium" if host_value.startswith("env:") or str(secret.value).startswith("env:") else "high",
                 f"mysql2.createPool sink; secret source {secret.file.name}:{secret.line} ({secret.name}), asset source {host.file.name}:{host.line} ({host.name})",
+                secret,
+                host,
             ))
     return findings
 
@@ -569,6 +604,8 @@ def _deduplicate(findings: Iterable[Finding]) -> list[Finding]:
 
 def analyze_path(target: str | Path, history: bool = False) -> list[Finding]:
     path = Path(target).resolve()
+    if not path.exists():
+        raise FileNotFoundError(path)
     root = path if path.is_dir() else path.parent
     repository, findings = Repository(root), []
     for file_path in sorted(item for item in root.rglob("*") if item.is_file() and item.suffix.lower() in SCAN_EXTENSIONS):
@@ -582,13 +619,12 @@ def analyze_path(target: str | Path, history: bool = False) -> list[Finding]:
     excluded: dict[Path, set[int]] = {}
     for finding in findings:
         excluded.setdefault(Path(finding.file), set()).add(finding.line)
-        source = re.search(r"secret source ([^:]+):(\d+)", finding.evidence)
-        if source:
-            for file_path in repository.texts:
-                if file_path.name == source.group(1):
-                    excluded.setdefault(file_path, set()).add(int(source.group(2)))
+        if finding.secret_source:
+            excluded.setdefault(finding.secret_source.file, set()).add(finding.secret_source.line)
     for file_path, text in repository.texts.items():
         findings.extend(_neighbor_findings(text, file_path, excluded.get(file_path, set())))
     if history:
         findings.extend(_history_findings(root))
+    if path.is_file():
+        findings = [finding for finding in findings if Path(finding.file) == path]
     return _deduplicate(findings)

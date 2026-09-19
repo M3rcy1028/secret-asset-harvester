@@ -46,12 +46,11 @@ assetharvester/
 │  └─ render_captures.py
 ├─ targets/
 │  ├─ 2024_DDV/                # 외부 GitHub 분석 대상
-│  └─ public-repos/             # 공개 repository 실험 대상
+│  └─ public-repo/              # 공개 repository 실험 대상
 ├─ tests/
 ├─ outputs/
 │  ├─ codeql/
-│  ├─ public-repo-findings/
-│  └─ public-repo-scan-results.json
+│  └─ YYYYMMDD_HHMMSS/         # 실행별 JSON 결과
 └─ docs/
 ```
 
@@ -132,7 +131,7 @@ JavaScript·TypeScript 파일의 `mysql2.createPool({...})` 호출을 sink로 �
 
 - `process.env.DB_HOST`, `process.env.DB_PASSWORD` 등의 환경변수 참조
 - 같은 파일의 단순 변수 alias
-- `.env` 파일에 정의된 literal 값
+- 해당 소스 파일 또는 상위 디렉토리의 `.env`에 정의된 literal 값
 
 예를 들어 다음 코드는 `javascript-data-flow/P3` finding을 생성한다.
 
@@ -143,7 +142,7 @@ mysql.createPool({
 });
 ```
 
-`.env` 파일이 없으면 asset은 `env:DB_HOST`처럼 환경변수 provenance로 기록하고 confidence를 `medium`으로 낮춘다.
+`.env` 파일이 없으면 asset은 `env:DB_HOST`처럼 환경변수 provenance로 기록하고 confidence를 `medium`으로 낮춘다. `.env`에서 값을 찾은 경우 source 파일을 기록하며 P4로 분류한다. 다른 프로젝트 디렉토리의 `.env`는 사용하지 않는다.
 
 ### 5.4 Configuration key flow
 
@@ -224,19 +223,7 @@ python -m assetharvester.cli targets\2024_DDV --history --json --output outputs\
 
 ### 7.3 공개 repository 여러 개 분석
 
-사전에 `targets/public-repos/` 아래에 repository를 clone한 후 실행한다.
-
-```powershell
-New-Item -ItemType Directory -Force targets\public-repo | Out-Null
-
-Get-ChildItem targets\public-repo -Directory | ForEach-Object {
-    $name = $_.Name
-    python -m assetharvester.cli $_.FullName --json
-    Write-Host "$name scanned"
-}
-```
-
-여러 저장소를 한 실험 단위로 묶으려면 실행 디렉토리를 먼저 한 번 만들고 `--output-dir`로 공유한다.
+사전에 `targets/public-repo/` 아래에 repository를 clone한 후, 실행 디렉토리를 한 번 만들고 `--output-dir`로 공유한다.
 
 ```powershell
 $runDir = Join-Path outputs (Get-Date -Format yyyyMMdd_HHmmss)
@@ -293,7 +280,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_codeql.ps1 `
 }
 ```
 
-`sink`는 실제 DB 연결 호출 위치이며, `asset.source`와 `secret.source`는 추적 가능한 설정 source다. `source`가 없는 직접 연결 문자열은 `null`로 기록한다. secret preview는 원문 secret이 아니라 앞·뒤 일부와 마스킹 문자로 구성된다.
+`sink`는 finding이 발생한 위치다. data flow 탐지에서는 DB 연결 호출 위치이며, P1 패턴 탐지에서는 연결 문자열 위치다. `asset.source`와 `secret.source`는 추적 가능한 설정 source의 전체 파일 경로·라인·변수명을 기록한다. `source`가 없는 직접 연결 문자열은 `null`로 기록한다. secret preview는 원문 secret이 아니라 앞·뒤 일부와 마스킹 문자로 구성된다.
 
 ### CodeQL SARIF
 
@@ -313,7 +300,7 @@ outputs/codeql/secret-asset-flow.sarif
 ### 내부 fixture
 
 ```text
-Python unittest: 9 tests passed
+Python unittest: 17 tests passed
 CodeQL queries: 2 compiled/evaluated
 JavaScript mysql2 environment flow: verified
 ```

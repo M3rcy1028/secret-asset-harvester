@@ -20,6 +20,8 @@ def main() -> int:
     if arguments.output and arguments.output_dir:
         parser.error("--output and --output-dir cannot be used together")
     target = Path(arguments.target)
+    if not target.exists():
+        parser.error(f"target does not exist: {target}")
     findings = analyze_path(target, history=arguments.history)
     if arguments.json:
         payload = json.dumps([finding.to_dict() for finding in findings], ensure_ascii=False, indent=2)
